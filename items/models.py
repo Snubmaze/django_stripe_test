@@ -11,10 +11,8 @@ class Item(models.Model):
     def price_dollars(self) -> float:
         return self.price / 100
     
-    
     def __str__(self):
         return self.name
-
 
 
 class Order(models.Model):
