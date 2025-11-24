@@ -1,41 +1,115 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>{{ item.name }}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ item.name }}</title>
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
-  <h1>{{ item.name }}</h1>
-  <p>{{ item.description }}</p>
-  <p>Price: {{ item.price_dollars|default:item.price }}</p>
+    <a href="{% url 'cart_page' %}">Go to Cart</a>
+    
+    <h1>{{ item.name }}</h1>
+    <p>Price: ${{ item.price_dollars }}</p>
+    
+    {% if item.description %}
+    <p>{{ item.description }}</p>
+    {% endif %}
+    
+    <button id="buyButton">Buy Now</button>
+    <button id="addToCartButton">Add to Cart</button>
+    
+    <div id="notification" style="display: none;"></div>
 
-  <button id="buy-button">Buy</button>
-
-  <script src="https://js.stripe.com/v3/"></script>
-
-  <script>
-    const stripe = Stripe("{{ stripe_pk }}");
-
-    const itemId = "{{ item.id }}";
-    const buyButton = document.getElementById('buy-button');
-
-    buyButton.addEventListener('click', async () => {
-      const response = await fetch(`/buy/${itemId}/`);
-      const data = await response.json();
-
-      if (data.error) {
-        alert("Server error: " + data.error);
-        return;
-      }
-
-      const result = await stripe.redirectToCheckout({
-        sessionId: data.id,
-      });
-
-      if (result.error) {
-        alert(result.error.message);
-      }
-    });
-  </script>
+    <script>
+        const stripe = Stripe('{{ stripe_pk }}');
+        const itemId = {{ item.id }};
+        
+        document.getElementById('buyButton').addEventListener('click', async function() {
+            const button = this;
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch(`/buy/${itemId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.id) {
+                    await stripe.redirectToCheckout({ sessionId: data.id });
+                } else {
+                    alert('Error creating checkout session');
+                    button.disabled = false;
+                    button.textContent = 'Buy Now';
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error processing payment');
+                button.disabled = false;
+                button.textContent = 'Buy Now';
+            }
+        });
+        
+        document.getElementById('addToCartButton').addEventListener('click', async function() {
+            const button = this;
+            button.disabled = true;
+            button.textContent = 'Adding...';
+            
+            try {
+                const response = await fetch(`/add-to-cart/${itemId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    showNotification(`${data.item_name} added to cart`);
+                } else if (data.already_in_cart) {
+                    showNotification(`${data.item_name} already in cart`);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error adding to cart');
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Add to Cart';
+            }
+        });
+        
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+        
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
 </body>
 </html>

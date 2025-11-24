@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>Your Cart</h1>
+    
+    {% if order and order_items %}
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order_item in order_items %}
+                <tr>
+                    <td>
+                        <strong>{{ order_item.item.name }}</strong>
+                        {% if order_item.item.description %}
+                        <br><small>{{ order_item.item.description|truncatewords:20 }}</small>
+                        {% endif %}
+                    </td>
+                    <td>${{ order_item.item.price_dollars }}</td>
+                    <td>
+                        <button onclick="changeQuantity({{ order.id }}, {{ order_item.item.id }}, {{ order_item.quantity }}, -1)" 
+                                {% if order_item.quantity <= 1 %}disabled{% endif %}>-</button>
+                        {{ order_item.quantity }}
+                        <button onclick="changeQuantity({{ order.id }}, {{ order_item.item.id }}, {{ order_item.quantity }}, 1)">+</button>
+                    </td>
+                    <td>
+                        <button onclick="deleteItem({{ order.id }}, {{ order_item.item.id }})">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div>
+            <h3>Summary</h3>
+            <p>Subtotal: ${{ order.subtotal_dollars }}</p>
+            
+            {% if order.discount %}
+            <p>Discount ({{ order.discount.name }}): -${{ order.discount_amount_dollars }}</p>
+            {% endif %}
+            
+            {% if order.tax %}
+            <p>Tax ({{ order.tax.name }}): +${{ order.tax_amount_dollars }}</p>
+            {% endif %}
+            
+            <p><strong>Total: ${{ order.total_dollars }}</strong></p>
+            
+            <button id="checkoutButton">Checkout</button>
+        </div>
+    {% else %}
+        <p>Your cart is empty</p>
+        <a href="/">Continue Shopping</a>
+    {% endif %}
+    
+    <script>
+        async function changeQuantity(orderId, itemId, currentQuantity, delta) {
+            const newQuantity = currentQuantity + delta;
+            
+            if (newQuantity < 1) return;
+            
+            try {
+                const response = await fetch(`/cart/change/${orderId}/${itemId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ quantity: newQuantity })
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error changing quantity');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error changing quantity');
+            }
+        }
+        
+        async function deleteItem(orderId, itemId) {
+            if (!confirm('Delete this item?')) return;
+            
+            try {
+                const response = await fetch(`/cart/delete/${orderId}/${itemId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error deleting item');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error deleting item');
+            }
+        }
+        
+        const checkoutButton = document.getElementById('checkoutButton');
+        if (checkoutButton) {
+            checkoutButton.addEventListener('click', async function() {
+                const button = this;
+                button.disabled = true;
+                button.textContent = 'Processing...';
+                
+                try {
+                    const orderId = {{ order.id }};
+                    const response = await fetch(`/buy-order/${orderId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.id) {
+                        const stripe = Stripe('{{ stripe_pk }}');
+                        await stripe.redirectToCheckout({ sessionId: data.id });
+                    } else {
+                        throw new Error('No session ID');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alert('Error processing checkout');
+                    button.disabled = false;
+                    button.textContent = 'Checkout';
+                }
+            });
+        }
+        
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
