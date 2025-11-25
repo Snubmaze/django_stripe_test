@@ -1,17 +1,15 @@
-# items/management/commands/initdata.py
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-from items.models import Item, Order, OrderItem
 
 class Command(BaseCommand):
     help = "Create initial test data (idempotent)."
 
     def handle(self, *args, **options):
-        # Примеры айтемов
+        from items.models import Item, Order, OrderItem
+        
         items_data = [
-            {"name": "Test Product A", "description": "Demo A", "price": 1000},  # cents
-            {"name": "Test Product B", "description": "Demo B", "price": 2500},
-            {"name": "Test Product C", "description": "Demo C", "price": 499},
+            {"name": "Sony PlayStation 5", "description": "Sony game console", "price": 38900},
+            {"name": "Apple AirPods Max", "description": "Apple headphones", "price": 23000},
+            {"name": "Apple MacBookAir 2020", "description": "Apple laptop", "price": 89900},
         ]
         created_items = []
         for d in items_data:
@@ -26,13 +24,9 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"Created Item: {item.name}"))
             created_items.append(item)
 
-        # Пример тестового заказа (корзины)
-        order, created = Order.objects.get_or_create(created_at__isnull=True, defaults={})
-        # лучше проверять по какому-то флагу — можно использовать метку в metadata, или искать пустой unpaid order
+        order, created = Order.objects.get_or_create(id=1, defaults={})
         if created or not order.order_items.exists():
-            # удалим старые позиции для простоты (опционально)
             OrderItem.objects.filter(order=order).delete()
-            # добавим пару позиций
             for item in created_items[:2]:
                 OrderItem.objects.create(order=order, item=item, quantity=1)
             self.stdout.write(self.style.SUCCESS(f"Created sample order #{order.id}"))

@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class Item(models.Model):
+class Item(models.Model):    
     name = models.CharField(max_length=60)
     description = models.TextField(max_length=1000, blank=True)
     price = models.PositiveIntegerField()
@@ -61,7 +61,7 @@ class Order(models.Model):
     discount = models.ForeignKey(Discount, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     tax = models.ForeignKey(Tax, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     is_paid = models.BooleanField(default=False)
-
+    
     class Meta:
         ordering = ['-created_at']
 

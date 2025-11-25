@@ -5,64 +5,303 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cart</title>
     <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 10px;
+            color: #999;
+            font-size: 18px;
+        }
+
+        .cart-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            color: #666;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .item-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .item-description {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .quantity-controls button {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .quantity-controls button:hover:not(:disabled) {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .quantity-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .delete-btn {
+            padding: 6px 12px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+        .summary {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .summary h3 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .summary-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .summary-line strong {
+            color: #333;
+        }
+
+        .discount {
+            color: #28a745;
+        }
+
+        .tax {
+            color: #ffc107;
+        }
+
+        .total-line {
+            border-top: 2px solid #f0f0f0;
+            padding-top: 15px;
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        #checkoutButton {
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #checkoutButton:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        #checkoutButton:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .cart-content {
+                grid-template-columns: 1fr;
+            }
+
+            .summary {
+                position: static;
+            }
+
+            th, td {
+                padding: 10px;
+                font-size: 14px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Your Cart</h1>
-    
-    {% if order and order_items %}
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order_item in order_items %}
-                <tr>
-                    <td>
-                        <strong>{{ order_item.item.name }}</strong>
-                        {% if order_item.item.description %}
-                        <br><small>{{ order_item.item.description|truncatewords:20 }}</small>
-                        {% endif %}
-                    </td>
-                    <td>${{ order_item.item.price_dollars }}</td>
-                    <td>
-                        <button onclick="changeQuantity({{ order.id }}, {{ order_item.item.id }}, {{ order_item.quantity }}, -1)" 
-                                {% if order_item.quantity <= 1 %}disabled{% endif %}>-</button>
-                        {{ order_item.quantity }}
-                        <button onclick="changeQuantity({{ order.id }}, {{ order_item.item.id }}, {{ order_item.quantity }}, 1)">+</button>
-                    </td>
-                    <td>
-                        <button onclick="deleteItem({{ order.id }}, {{ order_item.item.id }})">Delete</button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="container">
+        <h1>🛒 Your Cart</h1>
         
-        <div>
-            <h3>Summary</h3>
-            <p>Subtotal: ${{ order.subtotal_dollars }}</p>
-            
-            {% if order.discount %}
-            <p>Discount ({{ order.discount.name }}): -${{ order.discount_amount_dollars }}</p>
-            {% endif %}
-            
-            {% if order.tax %}
-            <p>Tax ({{ order.tax.name }}): +${{ order.tax_amount_dollars }}</p>
-            {% endif %}
-            
-            <p><strong>Total: ${{ order.total_dollars }}</strong></p>
-            
-            <button id="checkoutButton">Checkout</button>
-        </div>
-    {% else %}
-        <p>Your cart is empty</p>
-        <a href="/">Continue Shopping</a>
-    {% endif %}
+        {% if order and order_items %}
+            <div class="cart-content">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order_item in order_items %}
+                        <tr>
+                            <td>
+                                <div class="item-name">{{ order_item.item.name }}</div>
+                                {% if order_item.item.description %}
+                                <div class="item-description">{{ order_item.item.description|truncatewords:20 }}</div>
+                                {% endif %}
+                            </td>
+                            <td>${{ order_item.item.price_dollars }}</td>
+                            <td>
+                                <div class="quantity-controls">
+                                    <button onclick="changeQuantity({{ order.id }}, {{ order_item.item.id }}, {{ order_item.quantity }}, -1)" 
+                                            {% if order_item.quantity <= 1 %}disabled{% endif %}>−</button>
+                                    <span style="min-width: 30px; text-align: center;">{{ order_item.quantity }}</span>
+                                    <button onclick="changeQuantity({{ order.id }}, {{ order_item.item.id }}, {{ order_item.quantity }}, 1)">+</button>
+                                </div>
+                            </td>
+                            <td>
+                                <button class="delete-btn" onclick="deleteItem({{ order.id }}, {{ order_item.item.id }})">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="summary">
+                    <h3>Order Summary</h3>
+                    
+                    <div class="summary-line">
+                        <span>Subtotal:</span>
+                        <strong>${{ order.subtotal_dollars }}</strong>
+                    </div>
+                    
+                    {% if order.discount %}
+                    <div class="summary-line discount">
+                        <span>{{ order.discount.name }}:</span>
+                        <strong>-${{ order.discount_amount_dollars }}</strong>
+                    </div>
+                    {% endif %}
+                    
+                    {% if order.tax %}
+                    <div class="summary-line tax">
+                        <span>{{ order.tax.name }}:</span>
+                        <strong>+${{ order.tax_amount_dollars }}</strong>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="total-line">
+                        <span>Total:</span>
+                        <span>${{ order.total_dollars }}</span>
+                    </div>
+                    
+                    <button id="checkoutButton">Proceed to Checkout</button>
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-message">
+                <p>Your cart is empty</p>
+            </div>
+        {% endif %}
+    </div>
     
     <script>
         async function changeQuantity(orderId, itemId, currentQuantity, delta) {
@@ -92,7 +331,7 @@
         }
         
         async function deleteItem(orderId, itemId) {
-            if (!confirm('Delete this item?')) return;
+            if (!confirm('Delete this item from cart?')) return;
             
             try {
                 const response = await fetch(`/cart/delete/${orderId}/${itemId}/`, {
@@ -137,13 +376,13 @@
                         const stripe = Stripe('{{ stripe_pk }}');
                         await stripe.redirectToCheckout({ sessionId: data.id });
                     } else {
-                        throw new Error('No session ID');
+                        throw new Error(data.error || 'No session ID');
                     }
                 } catch (error) {
                     console.error(error);
-                    alert('Error processing checkout');
+                    alert('Error processing checkout: ' + error.message);
                     button.disabled = false;
-                    button.textContent = 'Checkout';
+                    button.textContent = 'Proceed to Checkout';
                 }
             });
         }
