@@ -42,9 +42,37 @@ def buy_item(request: HttpRequest, item_id: int) -> JsonResponse:
                 },
                 'quantity': 1,
             }],
-            success_url='http://127.0.0.1:8000/success.html',
-            cancel_url='http://127.0.0.1:8000/cancel.html',
+            success_url=request.build_absolute_uri('/success.html'),
+            cancel_url=request.build_absolute_uri('/cancel.html'),
         )
+        return JsonResponse({"id": session.id})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@require_POST
+def buy_order(request: HttpRequest, order_id: int) -> JsonResponse:
+    order = get_object_or_404(Order, id=order_id)
+    
+    if not order.order_items.exists():
+        return JsonResponse({"error": "Cart is empty"}, status=400)
+    
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    line_items = build_line_items(order)
+    
+    session_params = {
+        'payment_method_types': ['card'],
+        'line_items': line_items,
+        'mode': 'payment',
+        'success_url': request.build_absolute_uri('/success.html'),
+        'cancel_url': request.build_absolute_uri('/cancel.html'),
+        'metadata': {"order_id": str(order.id)},
+    }
+    
+    apply_discount_to_session(order, session_params)
+    apply_tax_to_line_items(order, line_items)
+    
+    try:
+        session = stripe.checkout.Session.create(**session_params)
         return JsonResponse({"id": session.id})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -132,9 +160,8 @@ def buy_order(request: HttpRequest, order_id: int) -> JsonResponse:
         'payment_method_types': ['card'],
         'line_items': line_items,
         'mode': 'payment',
-        'success_url': 'http://127.0.0.1:8000/success.html',
-        'cancel_url': 'http://127.0.0.1:8000/cancel.html',
-        'metadata': {"order_id": str(order.id)},
+        'success_url': request.build_absolute_uri(f'/success.html?order_id={order.id}'),
+        'cancel_url': request.build_absolute_uri('/cancel.html'),
     }
     
     apply_discount_to_session(order, session_params)
@@ -145,3 +172,20 @@ def buy_order(request: HttpRequest, order_id: int) -> JsonResponse:
         return JsonResponse({"id": session.id})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+def success_page(request):
+    order_id = request.GET.get('order_id')
+    if order_id:
+        try:
+            order = Order.objects.get(id=order_id)
+            order.is_paid = True
+            order.save()
+        except Order.DoesNotExist:
+            pass
+    
+    return render(request, 'success.html')
+
+
+def cancel_page(request):
+    return render(request, 'cancel.html')
